@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { SafeAreaView } from "react-native";
+import { View, SafeAreaView } from "react-native";
 import {name as faker} from "faker";
 
 const {firstName} = faker;
@@ -10,16 +10,20 @@ export default () => {
   const [value, onChange] = useState(['', []]);
   return (
     <SafeAreaView>
-      <SegmentedTextInput
-        value={value}
-        onChange={onChange}
-        onSuggest={(text) => new Promise(
-          resolve => setTimeout(resolve, 200),
-        ).then(
-          () => [...Array(3)]
-            .map(() => `@${firstName()}`),
-        )}
-      />
+      <View
+        style={{
+          padding: 15,
+        }}
+      >
+        <SegmentedTextInput
+          value={value}
+          onChange={onChange}
+          onSuggest={(text) => new Promise(resolve => setTimeout(resolve, 200)).then(
+            () => [...Array(3)]
+              .map(() => `@${firstName()}`),
+          )}
+        />
+      </View>
     </SafeAreaView>
   );
 };

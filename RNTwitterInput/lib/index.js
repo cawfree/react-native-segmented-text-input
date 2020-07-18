@@ -9,12 +9,38 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
 });
 
-const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, segments], onChange, patterns, placeholder, disabled, shouldRenderInvalid, max, minWidth, onSuggest, minSuggestionLength, debounce: suggestionDebounce, renderSuggestions, ...extraProps}) => {
+const SegmentedTextInput = ({
+  style,
+  textStyle,
+  textInputStyle,
+  invalidTextStyle,
+  value: [value, segments],
+  onChange,
+  patterns,
+  placeholder,
+  disabled,
+  shouldRenderInvalid,
+  max,
+  minWidth,
+  onSuggest,
+  minSuggestionLength,
+  debounce: suggestionDebounce,
+  renderSuggestions,
+  layoutAnimationDisabled,
+  layoutAnimation,
+  ...extraProps
+}) => {
   const ref = useRef();
   const [suggestions, setSuggestions] = useState([]);
 
   const shouldPrettyAnimate = useCallback(
-    () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut),
+    () => {
+      if (!layoutAnimationDisabled) {
+        LayoutAnimation.configureNext(layoutAnimation);
+      }
+      return undefined;
+    },
+    [layoutAnimationDisabled, layoutAnimation],
   );
 
   const [debouncedSuggestion] = useState(
@@ -32,13 +58,13 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
   useEffect(
     () => {
       if (Platform.OS === 'android') {
-        if (UIManager.setLayoutAnimationEnabledExperimental) {
+        if (UIManager.setLayoutAnimationEnabledExperimental && !layoutAnimationDisabled) {
           UIManager.setLayoutAnimationEnabledExperimental(true);
         }
         shouldPrettyAnimate();
       }
     },
-    [],
+    [layoutAnimationDisabled],
   ); 
 
   // XXX: Attempt to match the input strings into corresponding segments.
@@ -72,15 +98,13 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
   const onChangeTextCallback = useCallback(
     (nextValue) => {
       if (!isEqual(value, nextValue)) {
-        return onChange([
-          nextValue,
-          [...segments, ...validSegments]
-            .filter((e, i, orig) => (orig.indexOf(e) === i)),
-        ]);
+        const nextSegments = [...segments, ...validSegments]
+          .filter((e, i, orig) => (orig.indexOf(e) === i));
+        return onChange([nextValue, nextSegments]);
       }
       return undefined;
     },
-    [onChange, value, segments, validSegments],
+    [onChange, value, segments, validSegments, shouldPrettyAnimate],
   ); 
 
   const renderLastSegmentAsInvalid = lastSegmentText.length > 0 && (!isValidLastSegment && !!shouldRenderInvalid(lastSegmentText));
@@ -155,16 +179,26 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
         )}
         <TextInput
           pointerEvents={shouldDisable ? "none" : "auto"}
+          onKeyPress={({ nativeEvent: { key: keyValue } }) => {
+            /* delete old segments */
+            if (lastSegmentText.length === 0 && segmentsToRender.length > 0) {
+              if (keyValue === "Backspace") {
+                onChange([lastSegmentText, segmentsToRender.filter((_, i, orig) => (i < orig.length - 1))]);
+                shouldPrettyAnimate();
+              }
+            }
+            return undefined;
+          }}
           ref={ref}
           disabled={shouldDisable}
-          style={[textStyle, !!renderLastSegmentAsInvalid && invalidTextStyle, { minWidth }].filter(e => !!e)}
+          style={[textStyle, textInputStyle, !!renderLastSegmentAsInvalid && invalidTextStyle, { minWidth }].filter(e => !!e)}
           placeholder={shouldDisable ? "" : placeholder}
           value={lastSegmentText}
           onChangeText={onChangeTextCallback}
         /> 
       </View>
       {/* TODO since the request must conform to a selected regexp, we can be the ones to pick it */}
-      {(!shouldDisable && Array.isArray(suggestions) && suggestions.length > 0) && renderSuggestions({
+      {(!shouldDisable && lastSegmentText.length >= minSuggestionLength && Array.isArray(suggestions) && suggestions.length > 0) && renderSuggestions({
           suggestions,
           // XXX: Assert that the selected suggestion must conform to the expected format.
           pickSuggestion: ([suggestion, regexp]) => {
@@ -173,11 +207,11 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
             } else if (!typeCheck("String", regexp)) {
               throw new Error(`Expected String regexp, encountered ${regexp}.`);
             }
+            
             debouncedSuggestion.cancel();
 
-            shouldPrettyAnimate();
-
             setSuggestions([]);
+            shouldPrettyAnimate();
             onChange(['', [...segmentsToRender, [suggestion, regexp]]]);
           },
         })}
@@ -194,6 +228,7 @@ SegmentedTextInput.propTypes = {
   segments: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.string)),
   onChangeSegments: PropTypes.func,
   textStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
+  textInputStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
   invalidTextStyle: PropTypes.oneOfType([
     PropTypes.shape({}),
     PropTypes.number,
@@ -205,6 +240,8 @@ SegmentedTextInput.propTypes = {
   minSuggestionLength: PropTypes.number,
   debounce: PropTypes.number,
   renderSuggestions: PropTypes.func,
+  layoutAnimationDisabled: PropTypes.bool,
+  layoutAnimation: PropTypes.shape({}),
 };
 
 SegmentedTextInput.defaultProps = {
@@ -214,16 +251,11 @@ SegmentedTextInput.defaultProps = {
     /* a twitter @mention */
     ["(^|\s)@[a-z\d-]+"]: ({style, onRequestDelete, ...extraProps}) => (
       <TouchableOpacity
-        style={{
-          backgroundColor: "orange",
-          borderRadius: 10,
-          padding: 5,
-        }}
         onPress={onRequestDelete}
       >
         <Text
           {...extraProps}
-          style={[style, { fontWeight: "bold", color: "white" }]}
+          style={[style, { fontWeight: "bold" }]}
         />
       </TouchableOpacity>
     ),
@@ -233,6 +265,7 @@ SegmentedTextInput.defaultProps = {
   textStyle: {
     fontSize: 28,
   },
+  textInputStyle: {},
   invalidTextStyle: {
     color: "red",
   },
@@ -266,6 +299,8 @@ SegmentedTextInput.defaultProps = {
       )}
     </View>
   ),
+  layoutAnimationDisabled: false,
+  layoutAnimation: LayoutAnimation.Presets.easeInEaseOut,
 };
 
 export default SegmentedTextInput;
