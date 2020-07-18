@@ -1,7 +1,7 @@
 # react-native-segmented-text-input
 A wickedly customizable &lt;TextInput /> for React Native. Useful for tags, spellchecking, whatever.
 
-## Getting Started
+## 🚀 Getting Started
 
 Using [npm](https://www.npmjs.com/):
 
@@ -9,7 +9,7 @@ Using [npm](https://www.npmjs.com/):
 npm install --save react-native-segmented-text-input
 ```
 
-## Usage
+## ✍️ Usage
 
 ```javascript
 import SegmentedTextInput from "react-native-segmented-text-input";
@@ -25,7 +25,7 @@ export default () => {
 };
 ```
 
-## Prop Types
+## 🤔 Prop Types
 
 | Prop Name               | Type Struc                                                                     | Required | Default                                      | Description                                                                                                                     |
 |-------------------------|--------------------------------------------------------------------------------|----------|----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
@@ -47,5 +47,5 @@ export default () => {
 | layoutAnimationDisabled | boolean                                                                        | false    | false                                        | Disables layout animations.                                                                                                     |
 | layoutAnimation         | Object                                                                         | false    | LayoutAnimation.Presets.easeInEaseOut        | Defines the style of layout animation.                                                                                          |
 
-## Licence
+## ✌️ Licence
 [**MIT**](./LICENSE.md)
