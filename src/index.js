@@ -21,7 +21,6 @@ const SegmentedTextInput = ({
   disabled,
   shouldRenderInvalid,
   max,
-  minWidth,
   onSuggest,
   minSuggestionLength,
   debounce: suggestionDebounce,
@@ -191,7 +190,13 @@ const SegmentedTextInput = ({
           }}
           ref={ref}
           disabled={shouldDisable}
-          style={[textStyle, textInputStyle, !!renderLastSegmentAsInvalid && invalidTextStyle, { minWidth }].filter(e => !!e)}
+          style={[
+            textStyle,
+            textInputStyle,
+            !!renderLastSegmentAsInvalid && invalidTextStyle,
+            /* hide text field when disabled */
+            (!!shouldDisable) && { height: 0 },
+          ].filter(e => !!e)}
           placeholder={shouldDisable ? "" : placeholder}
           value={lastSegmentText}
           onChangeText={onChangeTextCallback}
@@ -233,7 +238,6 @@ SegmentedTextInput.propTypes = {
   ]),
   shouldRenderInvalid: PropTypes.func,
   max: PropTypes.number,
-  minWidth: PropTypes.number,
   onSuggest: PropTypes.func,
   minSuggestionLength: PropTypes.number,
   debounce: PropTypes.number,
@@ -263,14 +267,15 @@ SegmentedTextInput.defaultProps = {
   textStyle: {
     fontSize: 28,
   },
-  textInputStyle: {},
+  textInputStyle: {
+    minWidth: 100,
+  },
   invalidTextStyle: {
     color: "red",
   },
   /* don't mark the first character as an invalid animation */
   shouldRenderInvalid: str => !str.startsWith("@"),
   max: 3,
-  minWidth: 100,
   onSuggest: text => Promise.resolve([]),
   minSuggestionLength: 2,
   debounce: 250,
