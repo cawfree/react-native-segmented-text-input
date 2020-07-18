@@ -221,12 +221,10 @@ const SegmentedTextInput = ({
 
 SegmentedTextInput.propTypes = {
   value: PropTypes.arrayOf(PropTypes.any),
-  onChangeText: PropTypes.func,
+  onChange: PropTypes.func,
   patterns: PropTypes.shape({}),
   placeholder: PropTypes.string,
   disabled: PropTypes.bool,
-  segments: PropTypes.arrayOf(PropTypes.arrayOf(PropTypes.string)),
-  onChangeSegments: PropTypes.func,
   textStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
   textInputStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
   invalidTextStyle: PropTypes.oneOfType([

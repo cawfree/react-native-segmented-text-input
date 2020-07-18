@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "react": "16.13.1",
-    "react-native": "0.63.1"
+    "react-native": "0.63.1",
+    "react-native-segmented-text-input": "../"
   },
   "devDependencies": {
     "@babel/core": "^7.10.5",
