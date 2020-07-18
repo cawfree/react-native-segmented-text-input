@@ -1,0 +1,44 @@
+{
+  "name": "react-native-segmented-text-input",
+  "version": "0.0.1-alpha.0",
+  "description": "A wickedly customizable <TextInput /> for React Native. Useful for tags, spellchecking, whatever.",
+  "main": "dist",
+  "repository": "https://github.com/cawfree/react-native-segmented-text-input",
+  "author": "Alex Thomas (@cawfree) <hello@cawfree.com>",
+  "license": "MIT",
+  "private": false,
+  "keywords": [
+    "react-native",
+    "tag",
+    "input",
+    "twitter",
+    "mention",
+    "regexp",
+    "highlighter"
+  ],
+  "scripts": {
+    "build": "babel src --out-dir dist",
+    "prettify": "yarn prettier --write \"**/*.js\"",
+    "test": "jest"
+  },
+  "dependencies": {
+    "lodash": "^4.17.19",
+    "type-check": "^0.4.0"
+  },
+  "peerDependencies": {
+    "react": "^16.13.1",
+    "react-native": "^0.63.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.10.5",
+    "@babel/core": "^7.10.5",
+    "@babel/node": "^7.10.5",
+    "@babel/polyfill": "^7.10.4",
+    "@babel/preset-env": "^7.10.4",
+    "@babel/preset-react": "^7.10.4",
+    "husky": "^4.2.5",
+    "jest": "^26.1.0",
+    "leasot": "^11.1.0",
+    "prettier": "^2.0.5"
+  }
+}
