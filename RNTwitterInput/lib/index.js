@@ -10,8 +10,12 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
 });
 
-const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, segments], onChange, patterns, placeholder, disabled, shouldRenderInvalid, max, ...extraProps}) => {
+const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, segments], onChange, patterns, placeholder, disabled, shouldRenderInvalid, max, minWidth, ...extraProps}) => {
   const ref = useRef();
+
+  const shouldPrettyAnimate = useCallback(
+    () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut),
+  );
   
   useEffect(
     () => {
@@ -19,10 +23,11 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
         if (UIManager.setLayoutAnimationEnabledExperimental) {
           UIManager.setLayoutAnimationEnabledExperimental(true);
         }
+        shouldPrettyAnimate();
       }
     },
     [],
-  );
+  ); 
 
   // XXX: Attempt to match the input strings into corresponding segments.
   const nextSegments = ((typeCheck("String", value) && value)  || "")
@@ -102,7 +107,9 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
                   onRequestDelete={() => {
                     const filteredSegments = segmentsToRender
                       .filter(([t]) => (t !== str));
-                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
+                    shouldPrettyAnimate();
+
                     onChange([lastSegmentText, filteredSegments]);
                     /* refocus the field */
                     ref.current.focus();
@@ -121,7 +128,7 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
         pointerEvents={shouldDisable ? "none" : "auto"}
         ref={ref}
         disabled={shouldDisable}
-        style={[textStyle, !!renderInvalidLastSegment && invalidTextStyle].filter(e => !!e)}
+        style={[textStyle, !!renderInvalidLastSegment && invalidTextStyle, { minWidth }].filter(e => !!e)}
         placeholder={shouldDisable ? "" : placeholder}
         value={lastSegmentText}
         onChangeText={onChangeTextCallback}
@@ -142,6 +149,7 @@ SegmentedTextInput.propTypes = {
   invalidTextStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
   shouldRenderInvalid: PropTypes.func,
   max: PropTypes.number,
+  minWidth: PropTypes.number,
 };
 
 SegmentedTextInput.defaultProps = {
@@ -165,7 +173,7 @@ SegmentedTextInput.defaultProps = {
       </TouchableOpacity>
     ),
   },
-  placeholder: "Search for users with @",
+  placeholder: "Add some @mentions...",
   disabled: false,
   textStyle: {
     fontSize: 28,
@@ -173,8 +181,10 @@ SegmentedTextInput.defaultProps = {
   invalidTextStyle: {
     color: "red",
   },
+  /* don't mark the first character as an invalid animation */
   shouldRenderInvalid: str => !str.startsWith("@"),
   max: 3,
+  minWidth: 100,
 };
 
 export default SegmentedTextInput;
