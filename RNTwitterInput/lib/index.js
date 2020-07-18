@@ -1,22 +1,29 @@
-import React, {useCallback, useEffect, useRef} from "react";
+import React, {useState, useCallback, useEffect, useRef} from "react";
 import PropTypes from "prop-types";
 import { UIManager, LayoutAnimation,  Platform, Text, TextInput, View, StyleSheet, TouchableOpacity } from "react-native";
 import { typeCheck } from "type-check";
-import { isEqual } from "lodash";
-import useDeepCompareEffect from "use-deep-compare-effect";
+import { isEqual, debounce } from "lodash";
 
 const styles = StyleSheet.create({
   segments: { flexWrap: "wrap", flexDirection: "row" },
   center: { alignItems: "center", justifyContent: "center" },
 });
 
-const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, segments], onChange, patterns, placeholder, disabled, shouldRenderInvalid, max, minWidth, ...extraProps}) => {
+const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, segments], onChange, patterns, placeholder, disabled, shouldRenderInvalid, max, minWidth, onSuggest, minSuggestionLength, debounce: suggestionDebounce, ...extraProps}) => {
   const ref = useRef();
 
   const shouldPrettyAnimate = useCallback(
     () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut),
   );
-  
+
+  const [debouncedSuggestion] = useState(
+    () => debounce(
+      /* force async */
+      str => Promise.resolve().then(() => onSuggest(str)),
+      suggestionDebounce,
+    ),
+  );
+
   useEffect(
     () => {
       if (Platform.OS === 'android') {
@@ -71,7 +78,7 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
     [onChange, value, segments, validSegments],
   ); 
 
-  const renderInvalidLastSegment = lastSegmentText.length > 0 && (!isValidLastSegment && !!shouldRenderInvalid(lastSegmentText));
+  const renderLastSegmentAsInvalid = lastSegmentText.length > 0 && (!isValidLastSegment && !!shouldRenderInvalid(lastSegmentText));
 
   const segmentsToRender = [...(segments || []), ...validSegments];
   const shouldDisable = disabled || (segmentsToRender.length >= max);
@@ -82,8 +89,21 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
       if (shouldDisable && ref.current.isFocused()) {
         ref.current.blur();
       }
+      return undefined;
     },
     [shouldDisable],
+  );
+
+  /* suggestion handling */
+  useEffect(
+    () => {
+      if (!renderLastSegmentAsInvalid && lastSegmentText.length > minSuggestionLength) {
+        /* request suggestion debounce */
+        debouncedSuggestion(lastSegmentText);
+      }
+      return undefined;
+    },
+    [renderLastSegmentAsInvalid, lastSegmentText, minSuggestionLength, debouncedSuggestion],
   );
 
   return (
@@ -128,7 +148,7 @@ const SegmentedTextInput = ({style, textStyle, invalidTextStyle, value: [value, 
         pointerEvents={shouldDisable ? "none" : "auto"}
         ref={ref}
         disabled={shouldDisable}
-        style={[textStyle, !!renderInvalidLastSegment && invalidTextStyle, { minWidth }].filter(e => !!e)}
+        style={[textStyle, !!renderLastSegmentAsInvalid && invalidTextStyle, { minWidth }].filter(e => !!e)}
         placeholder={shouldDisable ? "" : placeholder}
         value={lastSegmentText}
         onChangeText={onChangeTextCallback}
@@ -150,6 +170,9 @@ SegmentedTextInput.propTypes = {
   shouldRenderInvalid: PropTypes.func,
   max: PropTypes.number,
   minWidth: PropTypes.number,
+  onSuggest: PropTypes.func,
+  minSuggestionLength: PropTypes.number,
+  debounce: PropTypes.number,
 };
 
 SegmentedTextInput.defaultProps = {
@@ -185,6 +208,9 @@ SegmentedTextInput.defaultProps = {
   shouldRenderInvalid: str => !str.startsWith("@"),
   max: 3,
   minWidth: 100,
+  onSuggest: text => Promise.resolve([]),
+  minSuggestionLength: 2,
+  debounce: 250,
 };
 
 export default SegmentedTextInput;

@@ -10,6 +10,9 @@ export default () => {
       <SegmentedTextInput
         value={value}
         onChange={onChange}
+        onSuggest={(text) => {
+          console.warn('will ask', text);
+        }}
       />
     </SafeAreaView>
   );
