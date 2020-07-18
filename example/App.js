@@ -18,6 +18,12 @@ export default () => {
         <SegmentedTextInput
           value={value}
           onChange={onChange}
+          onSuggest={() => new Promise(resolve => setTimeout(resolve, 200))
+            .then(() => [
+              "@some",
+              "@fake",
+              "@suggestions",
+            ])}
         />
       </View>
     </SafeAreaView>
