@@ -17,7 +17,7 @@
     "highlighter"
   ],
   "scripts": {
-    "build": "babel src --out-dir dist",
+    "build": "babel src --out-dir dist ; rm -rf node_modules",
     "prettify": "yarn prettier --write \"**/*.js\"",
     "test": "jest"
   },
