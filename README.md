@@ -29,6 +29,13 @@ export default () => {
 };
 ```
 
+To initialize the view, you can supply the input text and corresponding pattern:
+
+```javascript
+import { PATTERN_MENTION } from "react-native-segmented-text-input";
+const [value, onChange] = useState(['', [["@cawfree", PATTERN_MENTION]]]);
+```
+
 ## 🤔 Prop Types
 
 | Prop Name               | Type Struc                                                                     | Required | Default                                      | Description                                                                                                                     |
@@ -41,6 +48,7 @@ export default () => {
 | textStyle               | styles                                                                         | false    | {fontSize: 28}                               | Style the text. (Inherited for both Text and InputText).                                                                        |
 | textInputStyle          | styles                                                                         | false    | {}                                           | Specific additional styling for the TextInput.                                                                                  |
 | invalidTextStyle        | styles                                                                         | false    | {color: "red"}                               | Specific additional styling for the TextInput when in error.                                                                    |
+| segmentContainerStyle        | styles                                                                         | false    | {}                               | Additional styling for segment container.                                                                    |
 | shouldRenderInvalid     | currentTextString => boolean                                                   | false    | str => !str.startsWith("@")                  | Determines whether a particular string should be rendered using invalidTextStyle.                                               |
 | max                     | number                                                                         | false    | 3                                            | Maximum number of segments.                                                                                                     |
 | onSuggest               | currentTextString => Promise([any])                                              | false    | Promise.resolve([])                          | A call which is made when the user is mid-typing. The string is passed to ask the parent to provide possible suggestions.       |

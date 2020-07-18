@@ -9,11 +9,14 @@ const styles = StyleSheet.create({
   center: { alignItems: "center", justifyContent: "center" },
 });
 
+export const PATTERN_MENTION = "(^|\s)@[a-z\d-]+";
+
 const SegmentedTextInput = ({
   style,
   textStyle,
   textInputStyle,
   invalidTextStyle,
+  segmentContainerStyle,
   value: [value, segments],
   onChange,
   patterns,
@@ -137,45 +140,59 @@ const SegmentedTextInput = ({
     [renderLastSegmentAsInvalid, lastSegmentText, minSuggestionLength, debouncedSuggestion],
   );
 
+  useEffect(
+    () => {
+      if (!isEqual(segmentsToRender, segments)) {
+        onChange([lastSegmentText, segmentsToRender]);
+        shouldPrettyAnimate();
+      }
+    },
+    [segmentsToRender, segments, onChange, shouldPrettyAnimate],
+  );
+
   return (
     <>
       <View
         {...extraProps}
         style={[styles.segments, style]}
       >
-        {(segmentsToRender).map(
-          ([str, regexp], i) => {
-            const Component = patterns[regexp] || React.Fragment;
-            return (
-              <React.Fragment
-                key={str}
-              >
-                <View
-                  style={styles.center}
+        <View
+          style={[styles.segments, segmentContainerStyle]}
+        >
+          {(segmentsToRender).map(
+            ([str, regexp], i) => {
+              const Component = patterns[regexp] || React.Fragment;
+              return (
+                <React.Fragment
+                  key={str}
                 >
-                  <Component
+                  <View
+                    style={styles.center}
+                  >
+                    <Component
+                      style={textStyle}
+                      children={str}
+                      onRequestDelete={() => {
+                        const filteredSegments = segmentsToRender
+                          .filter(([t]) => (t !== str));
+  
+                        shouldPrettyAnimate();
+  
+                        onChange([lastSegmentText, filteredSegments]);
+                        /* refocus the field */
+                        ref.current.focus();
+                      }}
+                    />
+                  </View>
+                  <Text
                     style={textStyle}
-                    children={str}
-                    onRequestDelete={() => {
-                      const filteredSegments = segmentsToRender
-                        .filter(([t]) => (t !== str));
-  
-                      shouldPrettyAnimate();
-  
-                      onChange([lastSegmentText, filteredSegments]);
-                      /* refocus the field */
-                      ref.current.focus();
-                    }}
+                    children=" "
                   />
-                </View>
-                <Text
-                  style={textStyle}
-                  children=" "
-                />
-              </React.Fragment>
-            );
-          },
-        )}
+                </React.Fragment>
+              );
+            },
+          )}
+        </View>
         <TextInput
           pointerEvents={shouldDisable ? "none" : "auto"}
           onKeyPress={({ nativeEvent: { key: keyValue } }) => {
@@ -236,6 +253,7 @@ SegmentedTextInput.propTypes = {
     PropTypes.shape({}),
     PropTypes.number,
   ]),
+  segmentContainerStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
   shouldRenderInvalid: PropTypes.func,
   max: PropTypes.number,
   onSuggest: PropTypes.func,
@@ -251,7 +269,7 @@ SegmentedTextInput.defaultProps = {
   onChange: Promise.resolve,
   patterns: {
     /* a twitter @mention */
-    ["(^|\s)@[a-z\d-]+"]: ({style, onRequestDelete, ...extraProps}) => (
+    [PATTERN_MENTION]: ({style, onRequestDelete, ...extraProps}) => (
       <TouchableOpacity
         onPress={onRequestDelete}
       >
@@ -273,6 +291,7 @@ SegmentedTextInput.defaultProps = {
   invalidTextStyle: {
     color: "red",
   },
+  segmentContainerStyle: {},
   /* don't mark the first character as an invalid animation */
   shouldRenderInvalid: str => !str.startsWith("@"),
   max: 3,
