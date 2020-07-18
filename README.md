@@ -1,6 +1,10 @@
 # react-native-segmented-text-input
 A wickedly customizable &lt;TextInput /> for React Native. Useful for tags, spellchecking, whatever.
 
+<p align="center">
+  <img src="./public/logo.gif" />
+</p>
+
 ## 🚀 Getting Started
 
 Using [npm](https://www.npmjs.com/):
