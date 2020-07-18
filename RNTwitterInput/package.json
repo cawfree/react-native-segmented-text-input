@@ -10,6 +10,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "faker": "^4.1.0",
     "react": "16.13.1",
     "react-native": "0.63.1",
     "type-check": "^0.4.0",
