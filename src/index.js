@@ -163,32 +163,21 @@ const SegmentedTextInput = ({
             ([str, regexp], i) => {
               const Component = patterns[regexp] || React.Fragment;
               return (
-                <React.Fragment
+                <Component
                   key={str}
-                >
-                  <View
-                    style={styles.center}
-                  >
-                    <Component
-                      style={textStyle}
-                      children={str}
-                      onRequestDelete={() => {
-                        const filteredSegments = segmentsToRender
-                          .filter(([t]) => (t !== str));
+                  style={textStyle}
+                  children={str}
+                  onRequestDelete={() => {
+                    const filteredSegments = segmentsToRender
+                      .filter(([t]) => (t !== str));
   
-                        shouldPrettyAnimate();
+                    shouldPrettyAnimate();
   
-                        onChange([lastSegmentText, filteredSegments]);
-                        /* refocus the field */
-                        ref.current.focus();
-                      }}
-                    />
-                  </View>
-                  <Text
-                    style={textStyle}
-                    children=" "
-                  />
-                </React.Fragment>
+                    onChange([lastSegmentText, filteredSegments]);
+                    /* refocus the field */
+                    ref.current.focus();
+                  }}
+                />
               );
             },
           )}
@@ -269,13 +258,14 @@ SegmentedTextInput.defaultProps = {
   onChange: Promise.resolve,
   patterns: {
     /* a twitter @mention */
-    [PATTERN_MENTION]: ({style, onRequestDelete, ...extraProps}) => (
+    [PATTERN_MENTION]: ({style, onRequestDelete, children, ...extraProps}) => (
       <TouchableOpacity
         onPress={onRequestDelete}
       >
         <Text
           {...extraProps}
           style={[style, { fontWeight: "bold" }]}
+          children={`${children} `}
         />
       </TouchableOpacity>
     ),
