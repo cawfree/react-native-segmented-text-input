@@ -11,224 +11,230 @@ const styles = StyleSheet.create({
 
 export const PATTERN_MENTION = "(^|\s)@[a-z\d-]+";
 
-const SegmentedTextInput = ({
-  style,
-  textStyle,
-  textInputStyle,
-  invalidTextStyle,
-  segmentContainerStyle,
-  value: [value, segments],
-  onChange,
-  patterns,
-  placeholder,
-  disabled,
-  shouldRenderInvalid,
-  max,
-  onSuggest,
-  minSuggestionLength,
-  debounce: suggestionDebounce,
-  renderSuggestions,
-  layoutAnimationDisabled,
-  layoutAnimation,
-  ...extraProps
-}) => {
-  const ref = useRef();
-  const [suggestions, setSuggestions] = useState([]);
-
-  const shouldPrettyAnimate = useCallback(
-    () => {
-      if (!layoutAnimationDisabled) {
-        LayoutAnimation.configureNext(layoutAnimation);
-      }
-      return undefined;
+const SegmentedTextInput = React.forwardRef(
+  (
+    {
+      style,
+      textStyle,
+      textInputStyle,
+      invalidTextStyle,
+      segmentContainerStyle,
+      value: [value, segments],
+      onChange,
+      patterns,
+      placeholder,
+      disabled,
+      shouldRenderInvalid,
+      max,
+      onSuggest,
+      minSuggestionLength,
+      debounce: suggestionDebounce,
+      renderSuggestions,
+      layoutAnimationDisabled,
+      layoutAnimation,
+      ...extraProps
     },
-    [layoutAnimationDisabled, layoutAnimation],
-  );
+    providedRef,
+  ) => {
+    const localRef = useRef();
+    const ref = providedRef || localRef;
+    const [suggestions, setSuggestions] = useState([]);
 
-  const [debouncedSuggestion] = useState(
-    () => debounce(
-      /* force async */
-      str => Promise.resolve().then(() => onSuggest(str))
-        .then((suggestions) => {
-          shouldPrettyAnimate();
-          setSuggestions(suggestions);
-        }),
-      suggestionDebounce,
-    ),
-  );
-
-  useEffect(
-    () => {
-      if (Platform.OS === 'android') {
-        if (UIManager.setLayoutAnimationEnabledExperimental && !layoutAnimationDisabled) {
-          UIManager.setLayoutAnimationEnabledExperimental(true);
+    const shouldPrettyAnimate = useCallback(
+      () => {
+        if (!layoutAnimationDisabled) {
+          LayoutAnimation.configureNext(layoutAnimation);
         }
-        shouldPrettyAnimate();
-      }
-    },
-    [layoutAnimationDisabled],
-  ); 
-
-  // XXX: Attempt to match the input strings into corresponding segments.
-  const nextSegments = ((typeCheck("String", value) && value)  || "")
-    .split(/[ ,]+/)
-    .map(
-      str => [
-        str,
-        Object.keys(patterns)
-          .reduce(
-            (selected, regExp) => (selected || (new RegExp(regExp, "gm").test(str)) && regExp),
-            null,
-        ),
-      ],
+        return undefined;
+      },
+      [layoutAnimationDisabled, layoutAnimation],
     );
 
-  // XXX: Latch the final segment (this is text that's in-dev).
-  const [lastSegmentText, isValidLastSegment] = nextSegments[nextSegments.length - 1];
-
-  // XXX: Filter all previous segments that didn't match.
-  const existingSegmentText = segments
-    .map(([text]) => text);
-
-  const validSegments = [
-    ...nextSegments
-      .filter(([_, match], i, orig) => (i !== (orig.length - 1) && !!match))
-      .filter(([text]) => existingSegmentText.indexOf(text) < 0),
-  ];
-
-  // XXX: Prevent duplicates.
-  const onChangeTextCallback = useCallback(
-    (nextValue) => {
-      if (!isEqual(value, nextValue)) {
-        const nextSegments = [...segments, ...validSegments]
-          .filter((e, i, orig) => (orig.indexOf(e) === i));
-        return onChange([nextValue, nextSegments]);
-      }
-      return undefined;
-    },
-    [onChange, value, segments, validSegments, shouldPrettyAnimate],
-  ); 
-
-  const renderLastSegmentAsInvalid = lastSegmentText.length > 0 && (!isValidLastSegment && !!shouldRenderInvalid(lastSegmentText));
-
-  const segmentsToRender = [...(segments || []), ...validSegments];
-  const shouldDisable = disabled || (segmentsToRender.length >= max);
-
-  useEffect(
-    () => {
-      /* blur if disabled */
-      if (shouldDisable) {
-        setSuggestions([]);
-        if (ref.current.isFocused()) {
-          ref.current.blur();
-        }
-      }
-      return undefined;
-    },
-    [shouldDisable],
-  );
-
-  /* suggestion handling */
-  useEffect(
-    () => {
-      if (!renderLastSegmentAsInvalid && lastSegmentText.length >= minSuggestionLength) {
-        /* request suggestion debounce */
-        debouncedSuggestion(lastSegmentText);
-      }
-      return undefined;
-    },
-    [renderLastSegmentAsInvalid, lastSegmentText, minSuggestionLength, debouncedSuggestion],
-  );
-
-  useEffect(
-    () => {
-      if (!isEqual(segmentsToRender, segments)) {
-        onChange([lastSegmentText, segmentsToRender]);
-        shouldPrettyAnimate();
-      }
-    },
-    [segmentsToRender, segments, onChange, shouldPrettyAnimate],
-  );
-
-  return (
-    <>
-      <View
-        {...extraProps}
-        style={[styles.segments, style]}
-      >
-        <View
-          style={[styles.segments, segmentContainerStyle]}
-        >
-          {(segmentsToRender).map(
-            ([str, regexp], i) => {
-              const Component = patterns[regexp] || React.Fragment;
-              return (
-                <Component
-                  key={str}
-                  style={textStyle}
-                  children={str}
-                  onRequestDelete={() => {
-                    const filteredSegments = segmentsToRender
-                      .filter(([t]) => (t !== str));
-  
-                    shouldPrettyAnimate();
-  
-                    onChange([lastSegmentText, filteredSegments]);
-                    /* refocus the field */
-                    ref.current.focus();
-                  }}
-                />
-              );
-            },
-          )}
-        </View>
-        <TextInput
-          pointerEvents={shouldDisable ? "none" : "auto"}
-          onKeyPress={({ nativeEvent: { key: keyValue } }) => {
-            /* delete old segments */
-            if (lastSegmentText.length === 0 && segmentsToRender.length > 0) {
-              if (keyValue === "Backspace") {
-                onChange([lastSegmentText, segmentsToRender.filter((_, i, orig) => (i < orig.length - 1))]);
-                shouldPrettyAnimate();
-              }
-            }
-            return undefined;
-          }}
-          ref={ref}
-          disabled={shouldDisable}
-          style={[
-            textStyle,
-            textInputStyle,
-            !!renderLastSegmentAsInvalid && invalidTextStyle,
-            /* hide text field when disabled */
-            (!!shouldDisable) && { height: 0 },
-          ].filter(e => !!e)}
-          placeholder={shouldDisable ? "" : placeholder}
-          value={lastSegmentText}
-          onChangeText={onChangeTextCallback}
-        /> 
-      </View>
-      {/* TODO since the request must conform to a selected regexp, we can be the ones to pick it */}
-      {(!shouldDisable && lastSegmentText.length >= minSuggestionLength && Array.isArray(suggestions) && suggestions.length > 0) && renderSuggestions({
-          suggestions,
-          // XXX: Assert that the selected suggestion must conform to the expected format.
-          pickSuggestion: ([suggestion, regexp]) => {
-            if (!typeCheck("String", suggestion)) {
-              throw new Error(`Expected String suggestion, encountered ${suggestion}.`);
-            } else if (!typeCheck("String", regexp)) {
-              throw new Error(`Expected String regexp, encountered ${regexp}.`);
-            }
-            
-            debouncedSuggestion.cancel();
-
-            setSuggestions([]);
+    const [debouncedSuggestion] = useState(
+      () => debounce(
+        /* force async */
+        str => Promise.resolve().then(() => onSuggest(str))
+          .then((suggestions) => {
             shouldPrettyAnimate();
-            onChange(['', [...segmentsToRender, [suggestion, regexp]]]);
-          },
-        })}
-    </>
-  );
-};
+            setSuggestions(suggestions);
+          }),
+        suggestionDebounce,
+      ),
+    );
+
+    useEffect(
+      () => {
+        if (Platform.OS === 'android') {
+          if (UIManager.setLayoutAnimationEnabledExperimental && !layoutAnimationDisabled) {
+            UIManager.setLayoutAnimationEnabledExperimental(true);
+          }
+          shouldPrettyAnimate();
+        }
+      },
+      [layoutAnimationDisabled],
+    ); 
+
+    // XXX: Attempt to match the input strings into corresponding segments.
+    const nextSegments = ((typeCheck("String", value) && value)  || "")
+      .split(/[ ,]+/)
+      .map(
+        str => [
+          str,
+          Object.keys(patterns)
+            .reduce(
+              (selected, regExp) => (selected || (new RegExp(regExp, "gm").test(str)) && regExp),
+              null,
+          ),
+        ],
+      );
+
+    // XXX: Latch the final segment (this is text that's in-dev).
+    const [lastSegmentText, isValidLastSegment] = nextSegments[nextSegments.length - 1];
+
+    // XXX: Filter all previous segments that didn't match.
+    const existingSegmentText = segments
+      .map(([text]) => text);
+
+    const validSegments = [
+      ...nextSegments
+        .filter(([_, match], i, orig) => (i !== (orig.length - 1) && !!match))
+        .filter(([text]) => existingSegmentText.indexOf(text) < 0),
+    ];
+
+    // XXX: Prevent duplicates.
+    const onChangeTextCallback = useCallback(
+      (nextValue) => {
+        if (!isEqual(value, nextValue)) {
+          const nextSegments = [...segments, ...validSegments]
+            .filter((e, i, orig) => (orig.indexOf(e) === i));
+          return onChange([nextValue, nextSegments]);
+        }
+        return undefined;
+      },
+      [onChange, value, segments, validSegments, shouldPrettyAnimate],
+    ); 
+
+    const renderLastSegmentAsInvalid = lastSegmentText.length > 0 && (!isValidLastSegment && !!shouldRenderInvalid(lastSegmentText));
+
+    const segmentsToRender = [...(segments || []), ...validSegments];
+    const shouldDisable = disabled || (segmentsToRender.length >= max);
+
+    useEffect(
+      () => {
+        /* blur if disabled */
+        if (shouldDisable) {
+          setSuggestions([]);
+          if (ref.current.isFocused()) {
+            ref.current.blur();
+          }
+        }
+        return undefined;
+      },
+      [shouldDisable],
+    );
+
+    /* suggestion handling */
+    useEffect(
+      () => {
+        if (!renderLastSegmentAsInvalid && lastSegmentText.length >= minSuggestionLength) {
+          /* request suggestion debounce */
+          debouncedSuggestion(lastSegmentText);
+        }
+        return undefined;
+      },
+      [renderLastSegmentAsInvalid, lastSegmentText, minSuggestionLength, debouncedSuggestion],
+    );
+
+    useEffect(
+      () => {
+        if (!isEqual(segmentsToRender, segments)) {
+          onChange([lastSegmentText, segmentsToRender]);
+          shouldPrettyAnimate();
+        }
+      },
+      [segmentsToRender, segments, onChange, shouldPrettyAnimate],
+    );
+
+    return (
+      <>
+        <View
+          {...extraProps}
+          style={[styles.segments, style]}
+        >
+          <View
+            style={[styles.segments, segmentContainerStyle]}
+          >
+            {(segmentsToRender).map(
+              ([str, regexp], i) => {
+                const Component = patterns[regexp] || React.Fragment;
+                return (
+                  <Component
+                    key={str}
+                    style={textStyle}
+                    children={str}
+                    onRequestDelete={() => {
+                      const filteredSegments = segmentsToRender
+                        .filter(([t]) => (t !== str));
+    
+                      shouldPrettyAnimate();
+    
+                      onChange([lastSegmentText, filteredSegments]);
+                      /* refocus the field */
+                      ref.current.focus();
+                    }}
+                  />
+                );
+              },
+            )}
+          </View>
+          <TextInput
+            pointerEvents={shouldDisable ? "none" : "auto"}
+            onKeyPress={({ nativeEvent: { key: keyValue } }) => {
+              /* delete old segments */
+              if (lastSegmentText.length === 0 && segmentsToRender.length > 0) {
+                if (keyValue === "Backspace") {
+                  onChange([lastSegmentText, segmentsToRender.filter((_, i, orig) => (i < orig.length - 1))]);
+                  shouldPrettyAnimate();
+                }
+              }
+              return undefined;
+            }}
+            ref={ref}
+            disabled={shouldDisable}
+            style={[
+              textStyle,
+              textInputStyle,
+              !!renderLastSegmentAsInvalid && invalidTextStyle,
+              /* hide text field when disabled */
+              (!!shouldDisable) && { height: 0 },
+            ].filter(e => !!e)}
+            placeholder={shouldDisable ? "" : placeholder}
+            value={lastSegmentText}
+            onChangeText={onChangeTextCallback}
+          /> 
+        </View>
+        {/* TODO since the request must conform to a selected regexp, we can be the ones to pick it */}
+        {(!shouldDisable && lastSegmentText.length >= minSuggestionLength && Array.isArray(suggestions) && suggestions.length > 0) && renderSuggestions({
+            suggestions,
+            // XXX: Assert that the selected suggestion must conform to the expected format.
+            pickSuggestion: ([suggestion, regexp]) => {
+              if (!typeCheck("String", suggestion)) {
+                throw new Error(`Expected String suggestion, encountered ${suggestion}.`);
+              } else if (!typeCheck("String", regexp)) {
+                throw new Error(`Expected String regexp, encountered ${regexp}.`);
+              }
+              
+              debouncedSuggestion.cancel();
+
+              setSuggestions([]);
+              shouldPrettyAnimate();
+              onChange(['', [...segmentsToRender, [suggestion, regexp]]]);
+            },
+          })}
+      </>
+    );
+  },
+);
 
 SegmentedTextInput.propTypes = {
   value: PropTypes.arrayOf(PropTypes.any),
