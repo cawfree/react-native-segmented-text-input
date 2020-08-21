@@ -189,7 +189,8 @@ const SegmentedTextInput = React.forwardRef(
           </View>
           <TextInput
             pointerEvents={shouldDisable ? "none" : "auto"}
-            onKeyPress={({ nativeEvent: { key: keyValue } }) => {
+            onKeyPress={(e) => {
+              const { nativeEvent: { key: keyValue } } = e;
               /* delete old segments */
               if (lastSegmentText.length === 0 && segmentsToRender.length > 0) {
                 if (keyValue === "Backspace") {
@@ -211,6 +212,10 @@ const SegmentedTextInput = React.forwardRef(
             placeholder={shouldDisable ? "" : placeholder}
             value={lastSegmentText}
             onChangeText={onChangeTextCallback}
+            onSubmitEditing={() => {
+              onChange([`${lastSegmentText} `, segmentsToRender]);
+              shouldPrettyAnimate();
+            }}
           /> 
         </View>
         {/* TODO since the request must conform to a selected regexp, we can be the ones to pick it */}
