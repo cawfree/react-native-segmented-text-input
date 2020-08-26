@@ -28,7 +28,10 @@ export default () => {
           ref={ref}
           value={value}
           onChange={onChange}
-          onSuggest={() => new Promise(resolve => setTimeout(resolve, 200))
+          suggestionsContainerStyle={{
+            backgroundColor: "red",
+          }}
+          onSuggest={() => new Promise(resolve => setTimeout(resolve, 2000))
             .then(() => [
               "@some",
               "@fake",

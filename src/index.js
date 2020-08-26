@@ -27,6 +27,7 @@ const SegmentedTextInput = React.forwardRef(
       shouldRenderInvalid,
       max,
       onSuggest,
+      suggestionsContainerStyle,
       minSuggestionLength,
       debounce: suggestionDebounce,
       renderSuggestions,
@@ -38,6 +39,7 @@ const SegmentedTextInput = React.forwardRef(
   ) => {
     const localRef = useRef();
     const ref = providedRef || localRef;
+    const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [suggestions, setSuggestions] = useState([]);
 
     const shouldPrettyAnimate = useCallback(
@@ -53,10 +55,17 @@ const SegmentedTextInput = React.forwardRef(
     const [debouncedSuggestion] = useState(
       () => debounce(
         /* force async */
-        str => Promise.resolve().then(() => onSuggest(str))
+        str => Promise.resolve()
+          .then(() => setLoadingSuggestions(true))
+          .then(() => onSuggest(str))
           .then((suggestions) => {
             shouldPrettyAnimate();
             setSuggestions(suggestions);
+            setLoadingSuggestions(false);
+          })
+          .catch((e) => {
+            console.warn(e);
+            setLoadingSuggestions(false);
           }),
         suggestionDebounce,
       ),
@@ -219,23 +228,26 @@ const SegmentedTextInput = React.forwardRef(
           /> 
         </View>
         {/* TODO since the request must conform to a selected regexp, we can be the ones to pick it */}
-        {(!shouldDisable && lastSegmentText.length >= minSuggestionLength && Array.isArray(suggestions) && suggestions.length > 0) && renderSuggestions({
-            suggestions,
-            // XXX: Assert that the selected suggestion must conform to the expected format.
-            pickSuggestion: ([suggestion, regexp]) => {
-              if (!typeCheck("String", suggestion)) {
-                throw new Error(`Expected String suggestion, encountered ${suggestion}.`);
-              } else if (!typeCheck("String", regexp)) {
-                throw new Error(`Expected String regexp, encountered ${regexp}.`);
-              }
-              
-              debouncedSuggestion.cancel();
+        <View style={suggestionsContainerStyle}>
+          {((!shouldDisable && lastSegmentText.length >= minSuggestionLength && Array.isArray(suggestions) && suggestions.length > 0) || loadingSuggestions) && renderSuggestions({
+              loadingSuggestions,
+              suggestions,
+              // XXX: Assert that the selected suggestion must conform to the expected format.
+              pickSuggestion: ([suggestion, regexp]) => {
+                if (!typeCheck("String", suggestion)) {
+                  throw new Error(`Expected String suggestion, encountered ${suggestion}.`);
+                } else if (!typeCheck("String", regexp)) {
+                  throw new Error(`Expected String regexp, encountered ${regexp}.`);
+                }
+                
+                debouncedSuggestion.cancel();
 
-              setSuggestions([]);
-              shouldPrettyAnimate();
-              onChange(['', [...segmentsToRender, [suggestion, regexp]]]);
-            },
-          })}
+                setSuggestions([]);
+                shouldPrettyAnimate();
+                onChange(['', [...segmentsToRender, [suggestion, regexp]]]);
+              },
+            })}
+        </View>
       </>
     );
   },
@@ -254,6 +266,7 @@ SegmentedTextInput.propTypes = {
     PropTypes.number,
   ]),
   segmentContainerStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
+  suggestionsContainerStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
   shouldRenderInvalid: PropTypes.func,
   max: PropTypes.number,
   onSuggest: PropTypes.func,
@@ -293,22 +306,28 @@ SegmentedTextInput.defaultProps = {
     color: "red",
   },
   segmentContainerStyle: {},
+  suggestionsContainerStyle: {},
   /* don't mark the first character as an invalid animation */
   shouldRenderInvalid: str => !str.startsWith("@"),
   max: 3,
   onSuggest: text => Promise.resolve([]),
   minSuggestionLength: 2,
   debounce: 250,
-  renderSuggestions: ({suggestions, pickSuggestion}) => (
+  renderSuggestions: ({loadingSuggestions, suggestions, pickSuggestion}) => (
     <View
+      pointerEvents={loadingSuggestions ? "none" : "auto"}
       style={{
         flexDirection: "row",
+        alignItems: "center",
       }}
-    >
+    > 
       {suggestions.map(
         (suggestion, i) => (
           <TouchableOpacity
             key={i}
+            style={{
+              opacity: loadingSuggestions ? 0.4 : 1.0,
+            }}
             onPress={() => pickSuggestion([suggestion, "(^|\s)@[a-z\d-]+"])}
           >
             <Text
@@ -319,7 +338,7 @@ SegmentedTextInput.defaultProps = {
             />
           </TouchableOpacity>
         ),
-      )}
+      )} 
     </View>
   ),
   layoutAnimationDisabled: false,
