@@ -23,6 +23,7 @@ const SegmentedTextInput = React.forwardRef(
       onChange,
       patterns,
       placeholder,
+      placeholderTextColor,
       disabled,
       shouldRenderInvalid,
       max,
@@ -219,6 +220,7 @@ const SegmentedTextInput = React.forwardRef(
               (!!shouldDisable) && { height: 0 },
             ].filter(e => !!e)}
             placeholder={shouldDisable ? "" : placeholder}
+            placeholderTextColor={placeholderTextColor}
             value={lastSegmentText}
             onChangeText={onChangeTextCallback}
             onSubmitEditing={() => {
@@ -258,6 +260,7 @@ SegmentedTextInput.propTypes = {
   onChange: PropTypes.func,
   patterns: PropTypes.shape({}),
   placeholder: PropTypes.string,
+  placeholderTextColor: PropTypes.string,
   disabled: PropTypes.bool,
   textStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
   textInputStyle: PropTypes.oneOfType([PropTypes.shape({}), PropTypes.number]),
@@ -295,6 +298,7 @@ SegmentedTextInput.defaultProps = {
     ),
   },
   placeholder: "Add some @mentions...",
+  placeholderTextColor: undefined,
   disabled: false,
   textStyle: {
     fontSize: 28,
