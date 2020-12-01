@@ -1,15 +1,17 @@
 import React, {useState, useCallback, useEffect, useRef} from "react";
 import PropTypes from "prop-types";
-import { UIManager, LayoutAnimation,  Platform, Text, TextInput, View, StyleSheet, TouchableOpacity } from "react-native";
+import { ActivityIndicator, Platform, Text, TextInput, View, StyleSheet, TouchableOpacity } from "react-native";
 import { typeCheck } from "type-check";
 import { isEqual, debounce } from "lodash";
+import { useDebounce } from "use-debounce";
 
 const styles = StyleSheet.create({
   segments: { flexWrap: "wrap", flexDirection: "row" },
   center: { alignItems: "center", justifyContent: "center" },
 });
 
-export const PATTERN_MENTION = "(^|\s)@[a-z\d-]+";
+export const PATTERN_MENTION = "(^|\s)@[a-z_\d-]+";
+export const PATTERN_HASHTAG = "(^|\s)#[a-z_\d-]+";
 
 const SegmentedTextInput = React.forwardRef(
   (
@@ -32,8 +34,6 @@ const SegmentedTextInput = React.forwardRef(
       minSuggestionLength,
       debounce: suggestionDebounce,
       renderSuggestions,
-      layoutAnimationDisabled,
-      layoutAnimation,
       multiline,
       numberOfLines,
       ...extraProps
@@ -44,78 +44,65 @@ const SegmentedTextInput = React.forwardRef(
     const ref = providedRef || localRef;
     const [loadingSuggestions, setLoadingSuggestions] = useState(false);
     const [suggestions, setSuggestions] = useState([]);
-
-    const shouldPrettyAnimate = useCallback(
-      () => {
-        if (!layoutAnimationDisabled) {
-          LayoutAnimation.configureNext(layoutAnimation);
-        }
-        return undefined;
-      },
-      [layoutAnimationDisabled, layoutAnimation],
-    );
+    const [debouncedLoading] = useDebounce(loadingSuggestions, suggestionDebounce * 0.5);
+    const [debouncedSuggestions, {flush}] = useDebounce(suggestions, suggestionDebounce * 0.5);
 
     const [debouncedSuggestion] = useState(
       () => debounce(
-        /* force async */
-        str => Promise.resolve()
-          .then(() => setLoadingSuggestions(true))
-          .then(() => onSuggest(str))
-          .then((suggestions) => {
-            shouldPrettyAnimate();
-            setSuggestions(suggestions);
+        async (str) => {
+          try {
+            setLoadingSuggestions(true);
+            setSuggestions(await onSuggest(str));
+          } catch (e) {
+            console.error(e);
+          } finally {
             setLoadingSuggestions(false);
-          })
-          .catch((e) => {
-            console.warn(e);
-            setLoadingSuggestions(false);
-          }),
+          }
+        },
         suggestionDebounce,
       ),
     );
 
-    useEffect(
+    const nextSegments = React.useMemo(
       () => {
-        if (Platform.OS === 'android') {
-          if (UIManager.setLayoutAnimationEnabledExperimental && !layoutAnimationDisabled) {
-            UIManager.setLayoutAnimationEnabledExperimental(true);
-          }
-          shouldPrettyAnimate();
-        }
+        return ((typeCheck("String", value) && value)  || "")
+          .split(/[ ,]+/)
+          .map(
+            str => [
+              str,
+              Object.keys(patterns)
+                .reduce(
+                  (selected, regExp) => (selected || (new RegExp(regExp, "gm").test(str)) && regExp),
+                  null,
+              ),
+            ],
+          );
       },
-      [layoutAnimationDisabled],
-    ); 
-
-    // XXX: Attempt to match the input strings into corresponding segments.
-    const nextSegments = ((typeCheck("String", value) && value)  || "")
-      .split(/[ ,]+/)
-      .map(
-        str => [
-          str,
-          Object.keys(patterns)
-            .reduce(
-              (selected, regExp) => (selected || (new RegExp(regExp, "gm").test(str)) && regExp),
-              null,
-          ),
-        ],
-      );
+      [value, patterns],
+    );
 
     // XXX: Latch the final segment (this is text that's in-dev).
     const [lastSegmentText, isValidLastSegment] = nextSegments[nextSegments.length - 1];
 
     // XXX: Filter all previous segments that didn't match.
-    const existingSegmentText = segments
-      .map(([text]) => text);
+    const existingSegmentText = React.useMemo(() => segments .map(([text]) => text), [segments]);
 
-    const validSegments = [
-      ...nextSegments
-        .filter(([_, match], i, orig) => (i !== (orig.length - 1) && !!match))
-        .filter(([text]) => existingSegmentText.indexOf(text) < 0),
-    ];
+    const validSegments = React.useMemo(() => {
+      return [
+        ...nextSegments
+          .filter(([_, match], i, orig) => (i !== (orig.length - 1) && !!match))
+          .filter(([text]) => existingSegmentText.indexOf(text) < 0),
+      ];
+    }, [nextSegments, existingSegmentText]);
+
+    React.useEffect(() => {
+      lastSegmentText.trim().length === 0 && suggestions.length && setSuggestions([]);
+    }, [lastSegmentText, suggestions, setSuggestions]);
 
     // XXX: Prevent duplicates.
     const onChangeTextCallback = useCallback(
       (nextValue) => {
+        debouncedSuggestion.cancel();
         if (!isEqual(value, nextValue)) {
           const nextSegments = [...segments, ...validSegments]
             .filter((e, i, orig) => (orig.indexOf(e) === i));
@@ -123,22 +110,21 @@ const SegmentedTextInput = React.forwardRef(
         }
         return undefined;
       },
-      [onChange, value, segments, validSegments, shouldPrettyAnimate],
+      [onChange, value, segments, validSegments, debouncedSuggestion],
     ); 
 
     const renderLastSegmentAsInvalid = lastSegmentText.length > 0 && (!isValidLastSegment && !!shouldRenderInvalid(lastSegmentText));
-
-    const segmentsToRender = [...(segments || []), ...validSegments];
+    const segmentsToRender = React.useMemo(() => {
+      return [...(segments || []), ...validSegments];
+    }, [segments, validSegments]);
     const shouldDisable = disabled || (segmentsToRender.length >= max);
 
     useEffect(
       () => {
-        /* blur if disabled */
-        if (shouldDisable) {
+        if (shouldDisable) { /* blur if disabled */
+          debouncedSuggestion.cancel();
           setSuggestions([]);
-          if (ref.current.isFocused()) {
-            ref.current.blur();
-          }
+          ref.current.isFocused() && ref.current.blur();
         }
         return undefined;
       },
@@ -148,7 +134,8 @@ const SegmentedTextInput = React.forwardRef(
     /* suggestion handling */
     useEffect(
       () => {
-        if (!renderLastSegmentAsInvalid && lastSegmentText.length >= minSuggestionLength) {
+        if (!shouldDisable && !renderLastSegmentAsInvalid && lastSegmentText.length >= minSuggestionLength) {
+          debouncedSuggestion.cancel();
           /* request suggestion debounce */
           debouncedSuggestion(lastSegmentText);
         }
@@ -161,98 +148,117 @@ const SegmentedTextInput = React.forwardRef(
       () => {
         if (!isEqual(segmentsToRender, segments)) {
           onChange([lastSegmentText, segmentsToRender]);
-          shouldPrettyAnimate();
         }
       },
-      [segmentsToRender, segments, onChange, shouldPrettyAnimate],
+      [segmentsToRender, segments, onChange],
     );
 
+    const renderedSegments = React.useMemo(() => {
+      return segmentsToRender.map(([str, regexp], i) => {
+        const Component = patterns[regexp] || React.Fragment;
+        return (
+          <Component
+            key={str}
+            style={textStyle}
+            children={str}
+            onRequestDelete={() => {
+              const filteredSegments = segmentsToRender.filter(
+                ([t]) => t !== str
+              );
+              onChange([lastSegmentText, filteredSegments]);
+              ref.current.focus(); /* refocus the field */
+            }}
+          />
+        );
+      });
+    }, [patterns, segmentsToRender, lastSegmentText, onChange]);
+
+    const onKeyPress = React.useCallback((e) => {
+      const {
+        nativeEvent: { key: keyValue },
+      } = e;
+      /* delete old segments */
+      if (lastSegmentText.length === 0 && segmentsToRender.length > 0) {
+        if (keyValue === "Backspace") {
+          //debouncedSuggestion.cancel();
+          onChange([
+            lastSegmentText,
+            segmentsToRender.filter((_, i, orig) => i < orig.length - 1),
+          ]);
+        }
+      }
+      return undefined;
+    }, [lastSegmentText, segmentsToRender, onChange]);
+
+    React.useEffect(() => {
+      if ((renderLastSegmentAsInvalid || !value.length) && suggestions.length > 0) {
+        setSuggestions([]);
+        debouncedSuggestion.cancel();
+        flush();
+      }
+    }, [renderLastSegmentAsInvalid, debouncedSuggestion, setSuggestions, flush]);
+
+    const computedTextInputStyle = React.useMemo(() => {
+      return [
+        textStyle,
+        textInputStyle,
+        !!renderLastSegmentAsInvalid && invalidTextStyle,
+        /* hide text field when disabled */
+        !!shouldDisable && { height: 0 },
+      ].filter((e) => !!e);
+    }, [textStyle, textInputStyle, renderLastSegmentAsInvalid, invalidTextStyle, shouldDisable]);
+
+    const onSubmitEditing = React.useCallback(() => {
+      onChange([`${lastSegmentText} `, segmentsToRender]);
+    }, [lastSegmentText, segmentsToRender]);
+
+    //const shouldRenderSuggestions = React.useMemo(() => {
+    //  return !shouldDisable && suggestions.length > 0;
+    //  //return ((!shouldDisable && lastSegmentText.length >= minSuggestionLength && Array.isArray(suggestions) && suggestions.length > 0) || loadingSuggestions);
+    //}, [shouldDisable, lastSegmentText, minSuggestionLength, suggestions, loadingSuggestions]);
+
+    const shouldPickSuggestion = React.useCallback(([suggestion, regexp]) => {
+      if (!typeCheck("String", suggestion)) {
+        throw new Error(
+          `Expected String suggestion, encountered ${suggestion}.`
+        );
+      } else if (!typeCheck("String", regexp)) {
+        throw new Error(`Expected String regexp, encountered ${regexp}.`);
+      }
+
+      debouncedSuggestion.cancel();
+
+      setSuggestions([]);
+      onChange(["", [...segmentsToRender, [suggestion, regexp]]]);
+    }, [debouncedSuggestion, setSuggestions, onChange, segmentsToRender]);
     return (
       <>
-        <View
-          {...extraProps}
-          style={[styles.segments, style]}
-        >
-          <View
-            style={[styles.segments, segmentContainerStyle]}
-          >
-            {(segmentsToRender).map(
-              ([str, regexp], i) => {
-                const Component = patterns[regexp] || React.Fragment;
-                return (
-                  <Component
-                    key={str}
-                    style={textStyle}
-                    children={str}
-                    onRequestDelete={() => {
-                      const filteredSegments = segmentsToRender
-                        .filter(([t]) => (t !== str));
-    
-                      shouldPrettyAnimate();
-    
-                      onChange([lastSegmentText, filteredSegments]);
-                      /* refocus the field */
-                      ref.current.focus();
-                    }}
-                  />
-                );
-              },
-            )}
+        <View {...extraProps} style={[styles.segments, style]}>
+          <View style={[styles.segments, segmentContainerStyle]}>
+            {renderedSegments}
           </View>
           <TextInput
             multiline={multiline}
             numberOfLines={numberOfLines}
             pointerEvents={shouldDisable ? "none" : "auto"}
-            onKeyPress={(e) => {
-              const { nativeEvent: { key: keyValue } } = e;
-              /* delete old segments */
-              if (lastSegmentText.length === 0 && segmentsToRender.length > 0) {
-                if (keyValue === "Backspace") {
-                  onChange([lastSegmentText, segmentsToRender.filter((_, i, orig) => (i < orig.length - 1))]);
-                  shouldPrettyAnimate();
-                }
-              }
-              return undefined;
-            }}
+            onKeyPress={onKeyPress}
             ref={ref}
             disabled={shouldDisable}
-            style={[
-              textStyle,
-              textInputStyle,
-              !!renderLastSegmentAsInvalid && invalidTextStyle,
-              /* hide text field when disabled */
-              (!!shouldDisable) && { height: 0 },
-            ].filter(e => !!e)}
+            style={computedTextInputStyle}
             placeholder={shouldDisable ? "" : placeholder}
             placeholderTextColor={placeholderTextColor}
             value={lastSegmentText}
             onChangeText={onChangeTextCallback}
-            onSubmitEditing={() => {
-              onChange([`${lastSegmentText} `, segmentsToRender]);
-              shouldPrettyAnimate();
-            }}
-          /> 
+            onSubmitEditing={onSubmitEditing}
+          />
         </View>
         {/* TODO since the request must conform to a selected regexp, we can be the ones to pick it */}
         <View style={suggestionsContainerStyle}>
-          {((!shouldDisable && lastSegmentText.length >= minSuggestionLength && Array.isArray(suggestions) && suggestions.length > 0) || loadingSuggestions) && renderSuggestions({
-              loadingSuggestions,
-              suggestions,
-              // XXX: Assert that the selected suggestion must conform to the expected format.
-              pickSuggestion: ([suggestion, regexp]) => {
-                if (!typeCheck("String", suggestion)) {
-                  throw new Error(`Expected String suggestion, encountered ${suggestion}.`);
-                } else if (!typeCheck("String", regexp)) {
-                  throw new Error(`Expected String regexp, encountered ${regexp}.`);
-                }
-                
-                debouncedSuggestion.cancel();
-
-                setSuggestions([]);
-                shouldPrettyAnimate();
-                onChange(['', [...segmentsToRender, [suggestion, regexp]]]);
-              },
-            })}
+          {renderSuggestions({
+            loadingSuggestions: debouncedLoading,
+            suggestions: debouncedSuggestions,
+            pickSuggestion: shouldPickSuggestion,
+          })}
         </View>
       </>
     );
@@ -280,8 +286,6 @@ SegmentedTextInput.propTypes = {
   minSuggestionLength: PropTypes.number,
   debounce: PropTypes.number,
   renderSuggestions: PropTypes.func,
-  layoutAnimationDisabled: PropTypes.bool,
-  layoutAnimation: PropTypes.shape({}),
   multiline: PropTypes.bool,
   numberOfLines: PropTypes.number,
 };
@@ -322,7 +326,7 @@ SegmentedTextInput.defaultProps = {
   max: 3,
   onSuggest: text => Promise.resolve([]),
   minSuggestionLength: 2,
-  debounce: 250,
+  debounce: 350,
   renderSuggestions: ({loadingSuggestions, suggestions, pickSuggestion}) => (
     <View
       pointerEvents={loadingSuggestions ? "none" : "auto"}
@@ -331,6 +335,9 @@ SegmentedTextInput.defaultProps = {
         alignItems: "center",
       }}
     > 
+      {!!loadingSuggestions && (
+        <ActivityIndicator />
+      )}
       {suggestions.map(
         (suggestion, i) => (
           <TouchableOpacity
@@ -338,7 +345,7 @@ SegmentedTextInput.defaultProps = {
             style={{
               opacity: loadingSuggestions ? 0.4 : 1.0,
             }}
-            onPress={() => pickSuggestion([suggestion, "(^|\s)@[a-z\d-]+"])}
+            onPress={() => pickSuggestion([suggestion, PATTERN_MENTION.toString()])}
           >
             <Text
               style={{
@@ -351,10 +358,8 @@ SegmentedTextInput.defaultProps = {
       )} 
     </View>
   ),
-  layoutAnimationDisabled: false,
-  layoutAnimation: LayoutAnimation.Presets.easeInEaseOut,
   multiline: false,
   numberOfLines: 1,
 };
 
-export default SegmentedTextInput;
+export default React.memo(SegmentedTextInput);

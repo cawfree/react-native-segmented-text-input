@@ -56,8 +56,6 @@ const [value, onChange] = useState(['', [["@cawfree", PATTERN_MENTION]]]);
 | minSuggestionLength     | number                                                                         | false    | 2                                            | The minimum number of characters a user should have typed before attempting to make a suggestion.                               |
 | debounce                | number                                                                         | false    | 250                                          | The number of milliseconds to throttle attempts at querying for a suggestion.                                                   |
 | renderSuggestions       | ({suggestions:[any], pickSuggestion: () => undefined, loadingSuggestions: boolean}) => <SomeReactComponent /> | false    | () => <BunchOfSuggestionsThatCanBeDeleted /> | Used to render suggestions. This function must understand the specific format of returned suggestion data.                      |
-| layoutAnimationDisabled | boolean                                                                        | false    | false                                        | Disables layout animations.                                                                                                     |
-| layoutAnimation         | Object                                                                         | false    | LayoutAnimation.Presets.easeInEaseOut        | Defines the style of layout animation.                                                                                          |
 
 ## ✌️ Licence
 [**MIT**](./LICENSE.md)
