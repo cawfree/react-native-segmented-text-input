@@ -25,17 +25,20 @@ export default () => {
         style={styles.container}
       >
         <SegmentedTextInput
+          multiline
+          numberOfLines={3}
           ref={ref}
           value={value}
           onChange={onChange}
+          placeholder="Some really, really, really, really, really long prompt."
           suggestionsContainerStyle={{
             backgroundColor: "red",
           }}
-          onSuggest={() => new Promise(resolve => setTimeout(resolve, 2000))
+          onSuggest={(str) => new Promise(resolve => setTimeout(resolve, 2000))
             .then(() => [
-              "@some",
-              "@fake",
-              "@suggestions",
+              `${str}0`,
+              `${str}1`,
+              `${str}2`,
             ])}
         />
       </View>

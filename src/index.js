@@ -34,6 +34,8 @@ const SegmentedTextInput = React.forwardRef(
       renderSuggestions,
       layoutAnimationDisabled,
       layoutAnimation,
+      multiline,
+      numberOfLines,
       ...extraProps
     },
     providedRef,
@@ -198,6 +200,8 @@ const SegmentedTextInput = React.forwardRef(
             )}
           </View>
           <TextInput
+            multiline={multiline}
+            numberOfLines={numberOfLines}
             pointerEvents={shouldDisable ? "none" : "auto"}
             onKeyPress={(e) => {
               const { nativeEvent: { key: keyValue } } = e;
@@ -278,6 +282,8 @@ SegmentedTextInput.propTypes = {
   renderSuggestions: PropTypes.func,
   layoutAnimationDisabled: PropTypes.bool,
   layoutAnimation: PropTypes.shape({}),
+  multiline: PropTypes.bool,
+  numberOfLines: PropTypes.number,
 };
 
 SegmentedTextInput.defaultProps = {
@@ -347,6 +353,8 @@ SegmentedTextInput.defaultProps = {
   ),
   layoutAnimationDisabled: false,
   layoutAnimation: LayoutAnimation.Presets.easeInEaseOut,
+  multiline: false,
+  numberOfLines: 1,
 };
 
 export default SegmentedTextInput;
