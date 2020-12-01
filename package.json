@@ -1,6 +1,6 @@
 {
   "name": "react-native-segmented-text-input",
-  "version": "0.0.1-alpha.11",
+  "version": "0.0.1-alpha.12",
   "description": "A wickedly customizable <TextInput /> for React Native. Useful for tags, spellchecking, whatever.",
   "main": "dist",
   "repository": "https://github.com/cawfree/react-native-segmented-text-input",
