@@ -16,7 +16,7 @@
     "react-dom": "~16.11.0",
     "react-native": "~0.62.2",
     "react-native-gesture-handler": "~1.6.1",
-    "react-native-reanimated": "~1.9.0",
+    "react-native-reanimated": "~2.10.0",
     "react-native-screens": "~2.9.0",
     "react-native-segmented-text-input": "../",
     "react-native-unimodules": "~0.10.1",
